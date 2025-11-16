@@ -1,0 +1,14 @@
+# requirements.txt
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.30.0
+pillow>=9.0.0
+pandas>=1.5.0
+pyyaml>=6.0
+accelerate>=0.20.0
+sentencepiece>=0.1.99
+protobuf>=3.20.0
+
+# Optional: for specific models
+# bitsandbytes>=0.41.0  # for 8-bit quantization
+# einops>=0.6.0  # for certain model architectures
