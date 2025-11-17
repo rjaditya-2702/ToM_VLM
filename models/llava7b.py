@@ -3,7 +3,6 @@ transformers.set_seed(42)
 from transformers import pipeline
 import re
 import torch
-from .dataloader import DataSetLoader
 from torch.utils.data import DataLoader
 import pandas as pd
 from tqdm import tqdm
@@ -18,14 +17,26 @@ torch.backends.cudnn.benchmark = False
 seed = 42  # or any integer you prefer
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
+
+GOLD = {
+    0:'curiosity',
+    1:'family',
+    2:'tranquility',
+    3:'vengeance',
+    4:'social-contact',
+    5:'romance',
+    6:'none'
+}
        
-class LlavaModel13B:
+class Llava7BModel:
     def __init__(self, model_id="llava-hf/llava-1.5-7b-hf"):
         self.pipe = pipeline("image-text-to-text", model=model_id, device = 'cuda')        
         self.pipe.tokenizer.padding_side = 'left'
         if self.pipe.tokenizer.pad_token is None:
             self.pipe.tokenizer.pad_token = self.pipe.tokenizer.eos_token
         self.pipe.model = torch.compile(self.pipe.model, mode="reduce-overhead")
+
+        self.model_name = "llava-hf/llava-1.5-7b-hf"
 
     @torch.inference_mode()
     def infer(self, dataloader):
@@ -36,57 +47,86 @@ class LlavaModel13B:
         st = time.time()
         
         # Run inference for image inputs
-        for batch in tqdm(dataloader):
+        for batch in tqdm(dataloader_images):
             # Unpack the batch tuple
-            image_paths, messages_list, output_texts = batch
+            image_paths, prompts, templates, true_labels = batch
 
-            # output = self.pipe(text=messages_list, max_new_tokens=300, do_sample=False)
-            # o1 = [out["generated_text"][-1]["content"] for out in output]
-            
             batch_outputs = self.pipe(
-                text=messages_list,  # List of all messages in the batch
+                text=templates,  # List of all messages in the batch
                 max_new_tokens=300,
                 do_sample=False,
                 batch_size=len(messages_list)  # Specify batch size
             )
+
+            # do it again, but now, we need logits :)
+            with torch.no_grad():
+                logit_outputs = self.pipe.model(**inputs, output_hidden_states=False, return_dict=True)
+
+            # The 'logits' tensor has shape (batch_size, sequence_length, vocab_size)
+            raw_logits = logit_outputs.logits # (batch_size, sequence_length, vocab_size)
+            target_tokens = ["A", "B", "C", "D", "E", "F", "G"]
+            target_token_ids = self.processor.tokenizer.convert_tokens_to_ids(target_tokens)
+            option_probs = [] # bs x 7
+            for raw_logit, in_ids in zip(raw_logits, inputs.input_ids): #(seq_, v)
+                first_token = raw_logit[len(in_ids)] # (1,v)
+                probs = torch.nn.functional.softmax(first_token, dim=-1) #(1,v)
+                position_probs = probs[token_ids]
+            
             # Store results for this batch
-            for i, (image_path, messages, true_desire, output) in enumerate(
-                zip(image_paths, messages_list, output_texts, batch_outputs)
+            for i, (image_path, prompt, true_desire, output, logit) in enumerate(
+                zip(image_paths, prompts, true_labels, batch_outputs, option_probs)
             ):
                 # Extract caption from messages
-                caption_text = messages[0]["content"][1]["text"] if len(messages[0]["content"]) > 1 else ""
                 output = output[0]["generated_text"][-1]["content"]
                 result_dict = {
                     'image_path': image_path,
-                    'caption': caption_text,
+                    'caption': prompt,
                     'true_desire': true_desire,
-                    'with_image_result': format(output.strip())
+                    'result': output.strip(),
+                    'option A': logit[0],
+                    'option B': logit[1],
+                    'option C': logit[2],
+                    'option D': logit[3],
+                    'option E': logit[4],
+                    'option F': logit[5],
+                    'option G': logit[6]
                 }
                 all_results.append(result_dict)
-            torch.cuda.empty_cache()
         et = time.time()
         print(f"Inference completed in {et - st} seconds.")
 
         # Build DataFrame
         df_data = []
-        model_name = "llava-1.5-13b-hf"  # You can make this configurable
         
         for result in all_results:
             # Extract image name from path
             image_name = os.path.basename(result['image_path'])
-            
+            predictions = [result['option A'],
+                result['option B'],
+                result['option C'],
+                result['option D'],
+                result['option E'],
+                result['option F'],
+                result['option G']]
+            model_prediction = GOLD[int(np.argmax(predictions))]
+
             row = [
-                version,
                 image_name,
                 result['caption'],
-                model_name,
+                self.model_name,
                 result['true_desire'],
-                result.get('with_image_result', ''),
-                result.get('without_image_result', '')
+                model_prediction,
+                result['result'],
+                result['option A'],
+                result['option B'],
+                result['option C'],
+                result['option D'],
+                result['option E'],
+                result['option F'],
+                result['option G']
             ]
             df_data.append(row)
         
-        output_df = pd.DataFrame(df_data, columns=df_cols)
-        torch.cuda.empty_cache()
-        return output_df
-    
+        output_df = pd.DataFrame(df_data, columns=['ImageName', 'Model', 'True Label', 'Predicted Label', 'Output Text', 'curiosity', 'family', 'tranquility', 'vengeance', 'social-contact', 'romance', 'none'])
+        return output_df    
+

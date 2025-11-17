@@ -1,9 +1,9 @@
-from .models.qwen import QwenModel
-from .models.llama import LlamaModel
-from .models.llava7b import Llava7BModel
-from .models.llava13b import Llava13BModel
-from .models.gemma import GemmaModel
-from .models.bagel import BagelModel
+from .qwen import QwenModel
+from .llama import LlamaModel
+from .llava7b import Llava7BModel
+from .llava13b import Llava13BModel
+from .gemma import GemmaModel
+from .bagel import BagelModel
 
 from transformers import pipeline
 

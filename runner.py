@@ -12,10 +12,10 @@ from data.prepare_experiment import expt2
 from data.prepare_experiment import expt3
 from data.prepare_experiment import expt4
 
-from torch.utils import DataLoader
+from torch.utils.data import DataLoader
 
 CUR_DIR = os.path.dirname(__file__) # VQA
-SAVE_DIR = CUR_DIR / "results"
+SAVE_DIR = os.path.join(CUR_DIR , "results")
 
 def run_benchmark(
             dataset = 'msed',

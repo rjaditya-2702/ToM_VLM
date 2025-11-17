@@ -1,6 +1,6 @@
 # main.py
 import argparse
-from runner import BenchmarkRunner
+from runner import run_benchmark
 
 
 def main():

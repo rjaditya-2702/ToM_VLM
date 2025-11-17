@@ -7,7 +7,7 @@ import os
 import time
 from tqdm import tqdm
 
-class BAGELModel:
+class BagelModel:
     def __init__(self, model_id="ByteDance-Seed/BAGEL-7B-MoT"):
         """
         Initialize BAGEL model from ByteDance
@@ -60,26 +60,11 @@ class BAGELModel:
             image_paths, prompts, templates, true_labels = batch
             
             # Process each sample individually
-            for image_path, prompt, true_label in zip(image_paths, prompts, true_labels):
+            for image_path, prompt, template, true_label in zip(image_paths, prompts, templates, true_labels):
                 try:
-                    # Load image
-                    image = Image.open(image_path).convert('RGB')
-                    
-                    # Format message in BAGEL style
-                    # BAGEL uses a conversation format
-                    messages = [
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "image", "image": image},
-                                {"type": "text", "text": prompt}
-                            ]
-                        }
-                    ]
-                    
                     # Apply chat template
                     text = self.processor.apply_chat_template(
-                        messages,
+                        template,
                         tokenize=False,
                         add_generation_prompt=True
                     )
@@ -87,7 +72,6 @@ class BAGELModel:
                     # Process inputs
                     inputs = self.processor(
                         text=[text],
-                        images=[image],
                         return_tensors="pt"
                     ).to(self.model.device)
 
