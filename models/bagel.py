@@ -7,6 +7,28 @@ import os
 import time
 from tqdm import tqdm
 
+import numpy as np
+import traceback
+
+os.environ['TORCH_COMPILE_UNSUPPORTED']='1'
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+# Enable deterministic operations
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+seed = 42  # or any integer you prefer
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+
+GOLD = {
+    0:'curiosity',
+    1:'family',
+    2:'tranquility',
+    3:'vengeance',
+    4:'social-contact',
+    5:'romance',
+    6:'none'
+}
+
 class BagelModel:
     def __init__(self, model_id="ByteDance-Seed/BAGEL-7B-MoT"):
         """
@@ -133,29 +155,23 @@ class BagelModel:
 
         # Build DataFrame
         df_data = []
-        model_name = "BAGEL-7B-MoT"
-
-        # Assuming GOLD is defined somewhere
-        GOLD = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
 
         for result in all_results:
             # Extract image name from path
             image_name = os.path.basename(result['image_path'])
-            predictions = [
-                result['option A'],
+            predictions = [result['option A'],
                 result['option B'],
                 result['option C'],
                 result['option D'],
                 result['option E'],
                 result['option F'],
-                result['option G']
-            ]
+                result['option G']]
             model_prediction = GOLD[int(np.argmax(predictions))]
 
             row = [
                 image_name,
                 result['caption'],
-                model_name,
+                self.model_name,
                 result['true_desire'],
                 model_prediction,
                 result['result'],
@@ -168,13 +184,21 @@ class BagelModel:
                 result['option G']
             ]
             df_data.append(row)
-
+        
         output_df = pd.DataFrame(
             df_data, 
             columns=[
-                'ImageName', 'Caption', 'Model', 'True Label', 'Predicted Label', 
-                'Output Text', 'curiosity', 'family', 'tranquility', 'vengeance', 
-                'social-contact', 'romance', 'none'
-            ]
-        )
+                'ImageName', 
+                'Prompt',
+                'Model', 
+                'True Label', 
+                'Predicted Label', 
+                'Output Text', 
+                'curiosity', 
+                'family', 
+                'tranquility', 
+                'vengeance', 
+                'social-contact', 
+                'romance', 
+                'none'])
         return output_df

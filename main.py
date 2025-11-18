@@ -41,6 +41,12 @@ def main():
         action='store_true',
         help='List all available models and exit'
     )
+
+    parser.add_argument(
+        '--size',
+        help='samples to infer',
+        default = None
+    )
     
     args = parser.parse_args()
     
@@ -59,15 +65,15 @@ def main():
     # Run benchmark
     try:
         run_benchmark(
-            datset = args.dataset,
+            dataset = args.dataset,
             model_name=args.model,
             experiment_type=args.experiment,
             batch_size=args.batch_size,
-            device=args.device
+            n = args.size
         )
     except Exception as e:
         print(f"\nError running benchmark: {e}")
-        return 1
+        return e
     
     return 0
 

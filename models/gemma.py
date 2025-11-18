@@ -9,7 +9,11 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import pandas as pd
 
+import numpy as np
+import traceback
+
 os.environ['TORCH_COMPILE_UNSUPPORTED']='1'
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 # Enable deterministic operations
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
@@ -134,5 +138,20 @@ class GemmaModel:
             ]
             df_data.append(row)
         
-        output_df = pd.DataFrame(df_data, columns=['ImageName', 'Model', 'True Label', 'Predicted Label', 'Output Text', 'curiosity', 'family', 'tranquility', 'vengeance', 'social-contact', 'romance', 'none'])
+        output_df = pd.DataFrame(
+            df_data, 
+            columns=[
+                'ImageName', 
+                'Prompt',
+                'Model', 
+                'True Label', 
+                'Predicted Label', 
+                'Output Text', 
+                'curiosity', 
+                'family', 
+                'tranquility', 
+                'vengeance', 
+                'social-contact', 
+                'romance', 
+                'none'])
         return output_df

@@ -10,7 +10,11 @@ import time
 import os
 import gc
 
+import numpy as np
+import traceback
+
 os.environ['TORCH_COMPILE_UNSUPPORTED']='1'
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 # Enable deterministic operations
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
@@ -127,6 +131,22 @@ class Llava13BModel:
             ]
             df_data.append(row)
         
-        output_df = pd.DataFrame(df_data, columns=['ImageName', 'Model', 'True Label', 'Predicted Label', 'Output Text', 'curiosity', 'family', 'tranquility', 'vengeance', 'social-contact', 'romance', 'none'])
-        return output_df    
+        output_df = pd.DataFrame(
+            df_data, 
+            columns=[
+                'ImageName', 
+                'Prompt',
+                'Model', 
+                'True Label', 
+                'Predicted Label', 
+                'Output Text', 
+                'curiosity', 
+                'family', 
+                'tranquility', 
+                'vengeance', 
+                'social-contact', 
+                'romance', 
+                'none'])
+        return output_df
+
   

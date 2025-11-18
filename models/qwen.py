@@ -10,7 +10,11 @@ from tqdm import tqdm
 import time
 import sys
 
+import numpy as np
+import traceback
+
 os.environ['TORCH_COMPILE_UNSUPPORTED']='1'
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
 # Enable deterministic operations
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
@@ -46,10 +50,14 @@ GOLD = {
 class QwenModel:
     def __init__(self, model_id="Qwen/Qwen3-VL-8B-Instruct"):
         self.model_name = "Qwen3-VL-8B-Instruct"
-        self.model = Qwen3VLForConditionalGeneration.from_pretrained(model_id, dtype = torch.bfloat16, device_map="auto" ) #, attn_implementation="flash_attention_2")
+        self.model = Qwen3VLForConditionalGeneration.from_pretrained(
+            model_id, 
+            dtype = torch.bfloat16, 
+            device_map="auto",
+            cache_dir = "/projects/aiwell/conda/envs/ToM/.cache/") #, attn_implementation="flash_attention_2")
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.processor.tokenizer.padding_side = 'left'
-        self.model = torch.compile(self.model, mode="reduce-overhead")
+        # self.model = torch.compile(self.model, mode="reduce-overhead")
 
     @torch.inference_mode()
     def infer(self, dataloader):
@@ -86,7 +94,8 @@ class QwenModel:
                 generated_ids = self.model.generate(
                     **inputs, 
                     max_new_tokens=300, 
-                    do_sample=False
+                    do_sample=False,
+                    output_logits=True
                 )
                 # Decode all outputs
                 generated_ids_trimmed = [
@@ -100,17 +109,28 @@ class QwenModel:
 
                 # do it again, but now, we need logits :)
                 with torch.no_grad():
-                    logit_outputs = self.model(**inputs, output_hidden_states=False, return_dict=True)
+                    logit_outputs = self.model(**inputs)
 
-                # The 'logits' tensor has shape (batch_size, sequence_length, vocab_size)
-                raw_logits = logit_outputs.logits # (batch_size, sequence_length, vocab_size)
+                # logits: (batch_size, seq_len, vocab)
+                raw_logits = logit_outputs.logits.cpu().float()
+
+                # take next-token logits for each batch item: (bs, vocab)
+                first_token_logits = raw_logits[:, -1, :]
+
+                # target token list
                 target_tokens = ["A", "B", "C", "D", "E", "F", "G"]
+
+                # convert to token IDs
                 target_token_ids = self.processor.tokenizer.convert_tokens_to_ids(target_tokens)
-                option_probs = [] # bs x 7
-                for raw_logit, in_ids in zip(raw_logits, inputs.input_ids): #(seq_, v)
-                    first_token = raw_logit[len(in_ids)] # (1,v)
-                    probs = torch.nn.functional.softmax(first_token, dim=-1) #(1,v)
-                    position_probs = probs[token_ids]
+
+                option_probs = []  # list of (7,) tensors
+
+                # process each batch element
+                for raw_logit in first_token_logits:  # each is (vocab,)
+                    probs = torch.nn.functional.softmax(raw_logit, dim=-1)  # (vocab,)
+                    position_probs = probs[target_token_ids]  # (7,)
+                    option_probs.append(position_probs)
+
 
                 # Store results for this batch
                 for i, (image_path, prompt, true_desire, output, logit) in enumerate(
@@ -133,6 +153,7 @@ class QwenModel:
                     
             except Exception as e:
                 print(f"Error processing batch: {e}")
+                traceback.print_exc()
                 sys.exit(1)
         
         et = time.time()
@@ -170,5 +191,20 @@ class QwenModel:
             ]
             df_data.append(row)
         
-        output_df = pd.DataFrame(df_data, columns=['ImageName', 'Model', 'True Label', 'Predicted Label', 'Output Text', 'curiosity', 'family', 'tranquility', 'vengeance', 'social-contact', 'romance', 'none'])
+        output_df = pd.DataFrame(
+            df_data, 
+            columns=[
+                'ImageName', 
+                'Prompt',
+                'Model', 
+                'True Label', 
+                'Predicted Label', 
+                'Output Text', 
+                'curiosity', 
+                'family', 
+                'tranquility', 
+                'vengeance', 
+                'social-contact', 
+                'romance', 
+                'none'])
         return output_df
