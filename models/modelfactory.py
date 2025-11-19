@@ -3,7 +3,7 @@ from .llama import LlamaModel
 from .llava7b import Llava7BModel
 from .llava13b import Llava13BModel
 from .gemma import GemmaModel
-from .bagel import BagelModel
+# from .bagel import BagelModel
 
 from transformers import pipeline
 
@@ -31,7 +31,7 @@ class ModelFactory:
             "llava7b": Llava7BModel,
             "llava13b": Llava13BModel,
             "gemma": GemmaModel,
-            "bagel": BagelModel,
+            # "bagel": BagelModel,
         }
         if model_name not in MODEL_CLASSES:
             raise ValueError(f"Model name not in list - {list(self.MODEL_CLASSES.keys())}")

@@ -16,14 +16,11 @@ import copy
 import numpy as np
 import traceback
 
+import warnings
+warnings.filterwarnings("ignore")
+
 os.environ['TORCH_COMPILE_UNSUPPORTED']='1'
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-# Enable deterministic operations
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-seed = 42  # or any integer you prefer
-torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
 
 GOLD = {
     0:'curiosity',
@@ -35,15 +32,30 @@ GOLD = {
     6:'none'
 }
 
+def safe_cuda_init():
+
+    torch.cuda.synchronize()
+
+    # Enable deterministic operations
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    seed = 42  # or any integer you prefer
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
 class LlamaModel:
     def __init__(self, model_id="meta-llama/Llama-3.2-11B-Vision-Instruct"):
+        
+        safe_cuda_init()
+        
         self.model_name = "Llama-3.2-11B-Vision-Instruct"  # You can make this configurable
         self.model = MllamaForConditionalGeneration.from_pretrained(
             model_id,
             dtype = torch.bfloat16,
             device_map = 'cuda'
         )
-        self.model = torch.compile(self.model, mode="reduce-overhead")
+        
+        # self.model = torch.compile(self.model, mode="reduce-overhead")
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.processor.tokenizer.padding_side = 'left'
         
@@ -56,15 +68,22 @@ class LlamaModel:
         st = time.time()
         
         # Run inference for image inputs
-        for batch in tqdm(dataloader_images):
+        for batch in tqdm(dataloder):
             # Unpack the batch tuple
-            image_paths, prompts, tempaltes, true_labels = batch
+            image_paths, prompts, templates, true_labels = batch
             images = [[Image.open(p)] for p in image_paths]
             
             try:                
                 # Prepare all inputs at once
+
+                text = self.processor.apply_chat_template(
+                    templates,
+                    tokenizer=False, 
+                    add_generation_prompt=True
+                )
+
                 inputs = self.processor(
-                    text=templates,
+                    text=text,
                     images=images,
                     padding=True,
                     return_tensors="pt",
@@ -92,17 +111,22 @@ class LlamaModel:
 
                 # do it again, but now, we need logits :)
                 with torch.no_grad():
-                    logit_outputs = self.model(**inputs, output_hidden_states=False, return_dict=True)
+                    logit_outputs = self.model(**inputs)
 
-                # The 'logits' tensor has shape (batch_size, sequence_length, vocab_size)
-                raw_logits = logit_outputs.logits # (batch_size, sequence_length, vocab_size)
+                # logits: (batch_size, seq_len, vocab)
+                raw_logits = logit_outputs.logits.cpu().float()
+                # take next-token logits for each batch item: (bs, vocab)
+                first_token_logits = raw_logits[:, -1, :]
+                # target token list
                 target_tokens = ["A", "B", "C", "D", "E", "F", "G"]
+                # convert to token IDs
                 target_token_ids = self.processor.tokenizer.convert_tokens_to_ids(target_tokens)
-                option_probs = [] # bs x 7
-                for raw_logit, in_ids in zip(raw_logits, inputs.input_ids): #(seq_, v)
-                    first_token = raw_logit[len(in_ids)] # (1,v)
-                    probs = torch.nn.functional.softmax(first_token, dim=-1) #(1,v)
-                    position_probs = probs[token_ids]
+                option_probs = []  # list of (7,) tensors
+                # process each batch element
+                for raw_logit in first_token_logits:  # each is (vocab,)
+                    probs = torch.nn.functional.softmax(raw_logit, dim=-1)  # (vocab,)
+                    position_probs = probs[target_token_ids]  # (7,)
+                    option_probs.append(position_probs)
                 
                 # Store results for this batch
                 for i, (image_path, prompt, true_desire, output, logit) in enumerate(
@@ -126,6 +150,7 @@ class LlamaModel:
                     
             except Exception as e:
                 print(f"Error processing batch: {e}")
+                traceback.print_exc()
                 sys.exit(1)
         
         et = time.time()

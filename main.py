@@ -45,7 +45,8 @@ def main():
     parser.add_argument(
         '--size',
         help='samples to infer',
-        default = None
+        default = None,
+        type = int
     )
     
     args = parser.parse_args()

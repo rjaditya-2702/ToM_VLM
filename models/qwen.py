@@ -13,15 +13,11 @@ import sys
 import numpy as np
 import traceback
 
+import warnings
+warnings.filterwarnings("ignore")
+
 os.environ['TORCH_COMPILE_UNSUPPORTED']='1'
 os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-# Enable deterministic operations
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-seed = 42  
-transformers.set_seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
 
 # PROMPT = """
 # The following are multiple choice questions (with exactly one answer).
@@ -47,8 +43,21 @@ GOLD = {
     6:'none'
 }
 
+def safe_cuda_init():
+    torch.cuda.synchronize()
+
+    # Enable deterministic operations
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    seed = 42  # or any integer you prefer
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
 class QwenModel:
     def __init__(self, model_id="Qwen/Qwen3-VL-8B-Instruct"):
+
+        safe_cuda_init()
+
         self.model_name = "Qwen3-VL-8B-Instruct"
         self.model = Qwen3VLForConditionalGeneration.from_pretrained(
             model_id, 
@@ -57,6 +66,7 @@ class QwenModel:
             cache_dir = "/projects/aiwell/conda/envs/ToM/.cache/") #, attn_implementation="flash_attention_2")
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.processor.tokenizer.padding_side = 'left'
+        
         # self.model = torch.compile(self.model, mode="reduce-overhead")
 
     @torch.inference_mode()
