@@ -36,7 +36,10 @@ def run_benchmark(
     if image_path == None:
         raise "Please pass the correct dataset name"
 
+    print("Model name and dataset validated")
+
     data = None
+    
     match experiment_type:
         case 'expt1':
             data = expt1(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n)
@@ -48,6 +51,8 @@ def run_benchmark(
             data = expt4(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n)
     if data == None:
         raise "define a proper experiment please :)"
+    
+    print("Data prepared")
 
     # data: List[dict]
     # data[i] = {
@@ -66,11 +71,20 @@ def run_benchmark(
         pin_memory=True,  # Pin memory for faster GPU transfer
         prefetch_factor=2  # Number of batches to prefetch per worker
         )  # Return list of tuples as is)
+    
+    print("Converted data to a torch dataloader")
 
     model = ModelFactory.create_model(model_name)
+
+    print(f"Created a model instance for {model_name}")
+
     results = model.infer(dataloader) # output_df = pd.DataFrame(df_data, columns=['ImageName', 'Model', 'True Label', 'Predicted Label', 'Output Text', 'curiosity', 'family', 'tranquility', 'vengeance', 'social-contact', 'romance', 'none'])
+
+    print("Results fetched")
 
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR, exist_ok=True)
     SAVE_PATH = os.path.join(SAVE_DIR, f"{model_name}_{experiment_type}.csv")
     results.to_csv(SAVE_PATH)
+
+    print("Results saved to {0}".format(SAVE_PATH))

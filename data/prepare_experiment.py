@@ -138,3 +138,7 @@ def expt4(data_name, dataset_path, n = None):
         })
     
     return dataset
+
+def expt5(data_name, dataset_path, n = None):
+    # No image and caption
+    pass

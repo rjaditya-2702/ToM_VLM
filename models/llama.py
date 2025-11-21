@@ -46,13 +46,12 @@ def safe_cuda_init():
 class LlamaModel:
     def __init__(self, model_id="meta-llama/Llama-3.2-11B-Vision-Instruct"):
         
-        safe_cuda_init()
-        
+        safe_cuda_init()        
         self.model_name = "Llama-3.2-11B-Vision-Instruct"  # You can make this configurable
         self.model = MllamaForConditionalGeneration.from_pretrained(
             model_id,
             dtype = torch.bfloat16,
-            device_map = 'cuda'
+            device_map = 'auto'
         )
         
         # self.model = torch.compile(self.model, mode="reduce-overhead")

@@ -3,23 +3,9 @@ from .llama import LlamaModel
 from .llava7b import Llava7BModel
 from .llava13b import Llava13BModel
 from .gemma import GemmaModel
-# from .bagel import BagelModel
+from .bagel import BagelModel
 
 from transformers import pipeline
-
-class AbstractModel:
-    def __init__(self, model_id):
-        self.pipe = pipeline("image-text-to-text", model_id, device_map='auto')
-
-        # Set left padding for decoder-only model
-        self.pipe.tokenizer.padding_side = 'left'
-
-        # Set pad token if not set
-        if self.pipe.tokenizer.pad_token is None:
-            self.pipe.tokenizer.pad_token = self.pipe.tokenizer.eos_token
-        
-        self.pipe.model = torch.compile(self.pipe.model, mode="reduce-overhead")
-        
 
 class ModelFactory:
 
@@ -31,10 +17,10 @@ class ModelFactory:
             "llava7b": Llava7BModel,
             "llava13b": Llava13BModel,
             "gemma": GemmaModel,
-            # "bagel": BagelModel,
+            "bagel": BagelModel,
         }
         if model_name not in MODEL_CLASSES:
-            raise ValueError(f"Model name not in list - {list(self.MODEL_CLASSES.keys())}")
+            raise ValueError(f"Model name not in list - {list(MODEL_CLASSES.keys())}")
 
         model_class = MODEL_CLASSES[model_name]
         return model_class()

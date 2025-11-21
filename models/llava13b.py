@@ -45,7 +45,7 @@ class Llava13BModel:
         
         safe_cuda_init()
 
-        self.pipe = pipeline("image-text-to-text", model=model_id, device = 'cuda')        
+        self.pipe = pipeline("image-text-to-text", model=model_id, device_map = 'auto')        
         self.pipe.tokenizer.padding_side = 'left'
         if self.pipe.tokenizer.pad_token is None:
             self.pipe.tokenizer.pad_token = self.pipe.tokenizer.eos_token

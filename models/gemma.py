@@ -40,16 +40,14 @@ def safe_cuda_init():
     torch.cuda.manual_seed_all(seed)
 
 class GemmaModel:
-    def __init__(self, model_id="google/gemma-3-12b-it"):
-    # def __init__(self, model_id = "google/gemma-3-27b-it-qat-q4_0-gguf"):
-        
+    def __init__(self, model_id="google/gemma-3-12b-it"):        
         safe_cuda_init()
         
         self.model_name = "gemma-3-12b-it"  # You can make this configurable
         self.pipe = pipeline(
             "image-text-to-text",
             model=model_id,
-            device="cuda",
+            device_map="auto",
             torch_dtype=torch.bfloat16,
         )
         # Set left padding for decoder-only model
