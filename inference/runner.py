@@ -4,29 +4,32 @@ import pandas as pd
 import os
 import sys
 
-from models.modelfactory import ModelFactory
-from data.datafactory import DataFactory
+CUR_DIR = os.path.dirname(__file__) # inference
+PARENT_DIR = os.path.dirname(CUR_DIR) # VQA
+SAVE_DIR = os.path.join(PARENT_DIR , "results")
+# sys.path.insert(0, PARENT_DIR)
 
-from data.prepare_experiment import expt1
-from data.prepare_experiment import expt2
-from data.prepare_experiment import expt3
-from data.prepare_experiment import expt4
+from VQA.models.modelfactory import ModelFactory
+from VQA.data.datafactory import DataFactory
+
+from VQA.data.prepare_experiment import expt1
+from VQA.data.prepare_experiment import expt2
+from VQA.data.prepare_experiment import expt3
+from VQA.data.prepare_experiment import expt4
 
 from torch.utils.data import DataLoader
-
-CUR_DIR = os.path.dirname(__file__) # VQA
-SAVE_DIR = os.path.join(CUR_DIR , "results")
 
 def run_benchmark(
             dataset = 'msed',
             model_name= None,
             experiment_type= None,
             batch_size= 16,
-            n = None
+            n = None,
+            v = None
         ):
     
     if model_name == None:
-        raise "Model cannot be None"
+        raise ValueError("Model cannot be None")
 
     if dataset == 'msed':
         image_path = '/projects/aiwell/code/aditya_ratan/ToM_VLM/existing_datasets/msed/dev/images'
@@ -34,7 +37,7 @@ def run_benchmark(
         image_path = None
     
     if image_path == None:
-        raise "Please pass the correct dataset name"
+        raise ValueError("Please pass the correct dataset name")
 
     print("Model name and dataset validated")
 
@@ -42,15 +45,15 @@ def run_benchmark(
     
     match experiment_type:
         case 'expt1':
-            data = expt1(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n)
-        case 'exp2':
-            data = expt2(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n)
+            data = expt1(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n, v)
+        case 'expt2':
+            data = expt2(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n, v)
         case 'expt3':
-            data = expt3(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n)
+            data = expt3(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n, v)
         case 'expt4':
-            data = expt4(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n)
-    if data == None:
-        raise "define a proper experiment please :)"
+            data = expt4(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n, v)
+    if data is None:
+        raise Exception("define a proper experiment please :)")
     
     print("Data prepared")
 

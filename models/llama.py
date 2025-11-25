@@ -70,7 +70,7 @@ class LlamaModel:
         for batch in tqdm(dataloder):
             # Unpack the batch tuple
             image_paths, prompts, templates, true_labels = batch
-            images = [[Image.open(p)] for p in image_paths]
+            images = [[Image.open(p)] if p is not None else None for p in image_paths]
             
             try:                
                 # Prepare all inputs at once
@@ -137,13 +137,13 @@ class LlamaModel:
                         'caption': prompt,
                         'true_desire': true_desire,
                         'result': output.strip(),
-                        'option A': logit[0],
-                        'option B': logit[1],
-                        'option C': logit[2],
-                        'option D': logit[3],
-                        'option E': logit[4],
-                        'option F': logit[5],
-                        'option G': logit[6]
+                        'option A': float(logit[0]),
+                        'option B': float(logit[1]),
+                        'option C': float(logit[2]),
+                        'option D': float(logit[3]),
+                        'option E': float(logit[4]),
+                        'option F': float(logit[5]),
+                        'option G': float(logit[6])
                     }
                     all_results.append(result_dict)
                     

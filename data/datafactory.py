@@ -23,6 +23,17 @@ class Data_Qwen(Dataset):
                     ]
                 }
             ]
+        self.no_img_message = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "{}"
+                        }
+                    ]
+                }
+            ]
     
     def __len__(self):
         return len(self.data)
@@ -32,15 +43,19 @@ class Data_Qwen(Dataset):
         row = self.data[idx]
         
         true_label = row['true_desire']
-        
         prompt = row['prompt']
-        
         image_name = row['image_name']
-        image_path = os.path.join(image_path, image_name)
-        
-        template = self.message.copy()
-        template[0]["content"][0]["image"] = f"file://{image_path}"
-        template[0]["content"][1]["text"] = prompt
+
+        if image_name == None:
+            image_path = os.path.join(image_path, image_name)
+            template = self.no_img_message.copy()
+            template[0]["content"][0]["image"] = f"file://{image_path}"
+            template[0]["content"][1]["text"] = prompt
+
+        else:
+            image_path = None
+            template = self.message.copy()
+            template[0]["content"][0]["text"] = prompt
 
         return image_path, prompt, template, true_label
 
@@ -61,6 +76,18 @@ class Data_Llama:
                 }
             ]
         
+        self.no_img_message = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "{}"
+                        }
+                    ]
+                }
+            ]
+        
         self.data = data
     
     def __len__(self):
@@ -71,14 +98,18 @@ class Data_Llama:
         row = self.data[idx]
         
         true_label = row['true_desire']
-        
-        prompt = row['prompt']
-        
+        prompt = row['prompt']        
         image_name = row['image_name']
-        image_path = os.path.join(image_path, image_name)
-        
-        template = self.message.copy()
-        template[0]["content"][1]["text"] = prompt
+
+        if image_name == None:
+            image_path = os.path.join(image_path, image_name)
+            template = self.no_img_message.copy()
+            template[0]["content"][1]["text"] = prompt
+
+        else:
+            image_path = None
+            template = self.message.copy()
+            template[0]["content"][0]["text"] = prompt
 
         return image_path, prompt, template, true_label
 
@@ -99,39 +130,10 @@ class Data_Llava7B:
                     ]
                 }
             ]
-        
-        self.data = data
-    
-    def __len__(self):
-        return len(self.data)
-    
-    def __getitem__(self, idx):
-        image_path = "/projects/aiwell/code/aditya_ratan/ToM_VLM/existing_datasets/msed/dev/images"
-        row = self.data[idx]
-        
-        true_label = row['true_desire']
-        
-        prompt = row['prompt']
-        
-        image_name = row['image_name']
-        image_path = os.path.join(image_path, image_name)
-        
-        template = self.message.copy()
-        template[0]["content"][0]["image"] = image_path
-        template[0]["content"][1]["text"] = prompt
-
-        return image_path, prompt, template, true_label
-
-class Data_Llava13B:
-    def __init__(self, data):
-        self.message = [
+        self.no_img_message = [
                 {
                     "role": "user",
                     "content": [
-                        {
-                            "type": "image",
-                            "url": "{}"
-                        },
                         {
                             "type": "text",
                             "text": "{}"
@@ -150,15 +152,73 @@ class Data_Llava13B:
         row = self.data[idx]
         
         true_label = row['true_desire']
-        
         prompt = row['prompt']
-        
         image_name = row['image_name']
-        image_path = os.path.join(image_path, image_name)
+
+        if image_name == None:
+            image_path = os.path.join(image_path, image_name)
+            template = self.no_img_message.copy()
+            template[0]["content"][0]["image"] = image_path
+            template[0]["content"][1]["text"] = prompt
+
+        else:
+            image_path = None
+            template = self.message.copy()
+            template[0]["content"][0]["text"] = prompt
+
+        return image_path, prompt, template, true_label
         
-        template = self.message.copy()
-        template[0]["content"][0]["image"] = image_path
-        template[0]["content"][1]["text"] = prompt
+class Data_Llava13B:
+    def __init__(self, data):
+        self.message = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "url": "{}"
+                        },
+                        {
+                            "type": "text",
+                            "text": "{}"
+                        }
+                    ]
+                }
+            ]
+        self.no_img_message = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "{}"
+                        }
+                    ]
+                }
+            ]
+        self.data = data
+    
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        image_path = "/projects/aiwell/code/aditya_ratan/ToM_VLM/existing_datasets/msed/dev/images"
+        row = self.data[idx]
+        
+        true_label = row['true_desire']
+        prompt = row['prompt']
+        image_name = row['image_name']
+        
+        if image_name == None:
+            image_path = os.path.join(image_path, image_name)
+            template = self.no_img_message.copy()
+            template[0]["content"][0]["image"] = image_path
+            template[0]["content"][1]["text"] = prompt
+
+        else:
+            image_path = None
+            template = self.message.copy()
+            template[0]["content"][0]["text"] = prompt
 
         return image_path, prompt, template, true_label
 
@@ -189,6 +249,26 @@ class Data_Gemma:
                 }
             ]
         
+        self.no_img_message = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": ""
+                        }
+                    ]
+                },
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "You are a helpful assistant."
+                        }
+                    ]
+                }
+            ]
         self.data = data
     
     def __len__(self):
@@ -199,15 +279,19 @@ class Data_Gemma:
         row = self.data[idx]
         
         true_label = row['true_desire']
-        
         prompt = row['prompt']
-        
         image_name = row['image_name']
-        image_path = os.path.join(image_path, image_name)
-        
-        template = self.message.copy()
-        template[0]["content"][0]["image"] = image_path
-        template[0]["content"][1]["text"] = prompt
+
+        if image_name == None:
+            image_path = os.path.join(image_path, image_name)
+            template = self.no_img_message.copy()
+            template[0]["content"][0]["image"] = image_path
+            template[0]["content"][1]["text"] = prompt
+
+        else:
+            image_path = None
+            template = self.message.copy()
+            template[0]["content"][0]["text"] = prompt
 
         return image_path, prompt, template, true_label
 
@@ -228,13 +312,13 @@ class Data_Bagel:
         prompt = row['prompt']
         
         image_name = row['image_name']
-        image_path = os.path.join(image_path, image_name)
-        
-        template = self.message.copy()
-        template[0]["content"][0]["image"] = f"file://{image_path}"
-        template[0]["content"][1]["text"] = prompt
 
-        return image_path, prompt, template, true_label
+        if image_name == None:
+            image_path = None
+        else:
+            image_path = os.path.join(image_path, image_name)
+
+        return image_path, prompt, true_label
 
 class DataFactory:
     # MODEL_CLASSES = {

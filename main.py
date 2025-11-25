@@ -1,6 +1,6 @@
 # main.py
 import argparse
-from runner import run_benchmark
+from .inference.runner import run_benchmark
 
 
 def main():
@@ -48,6 +48,13 @@ def main():
         default = None,
         type = int
     )
+
+    parser.add_argument(
+        '--prompt',
+        help='samples to infer',
+        default = 'v1',
+        type = str
+    )
     
     args = parser.parse_args()
     
@@ -70,7 +77,8 @@ def main():
             model_name=args.model,
             experiment_type=args.experiment,
             batch_size=args.batch_size,
-            n = args.size
+            n = args.size,
+            v = args.prompt
         )
     except Exception as e:
         print(f"\nError running benchmark: {e}")

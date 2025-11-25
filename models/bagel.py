@@ -2,6 +2,7 @@ import transformers
 from transformers import pipeline
 import torch
 import os
+import sys
 import re
 import time
 from torch.utils.data import DataLoader
@@ -14,7 +15,10 @@ import traceback
 import warnings
 warnings.filterwarnings("ignore")
 
+from PIL import Image
+
 from accelerate import infer_auto_device_map, load_checkpoint_and_dispatch, init_empty_weights
+from safetensors.torch import load_file
 
 from huggingface_hub import snapshot_download
 from .Bagel.modeling.bagel.bagel import Bagel, BagelConfig
@@ -23,6 +27,8 @@ from .Bagel.modeling.bagel.siglip_navit import SiglipVisionConfig, SiglipVisionM
 from .Bagel.modeling.qwen2.tokenization_qwen2 import Qwen2Tokenizer
 
 from .Bagel.data.data_utils import add_special_tokens
+from .Bagel.data.transforms import ImageTransform
+from .Bagel.data.data_utils import pil_img2rgb, add_special_tokens
 from .Bagel.modeling.bagel.qwen2_navit import NaiveCache
 
 from .Bagel.inferencer import InterleaveInferencer
@@ -64,7 +70,8 @@ class BagelModel:
         # Step 1 : Download snapshot
         self.save_dir = os.path.join(CUR_DIR, 'bagel_parameters')
         repo_id = "ByteDance-Seed/BAGEL-7B-MoT"
-        cache_dir = os.path.join(self.save_dir, "cache")
+        self.model_name = repo_id
+        cache_dir = os.path.join(self.save_dir, ".cache")
 
         snapshot_download(cache_dir=cache_dir,
             local_dir=self.save_dir,
@@ -75,20 +82,20 @@ class BagelModel:
         )
 
         # Step 2: Initialization
-        llm_config = Qwen2Config.from_json_file(os.path.join(self.save_dir, "llm_config.json"))
-        llm_config.qk_norm = True
-        llm_config.tie_word_embeddings = False
-        llm_config.layer_module = "Qwen2MoTDecoderLayer"
+        self.llm_config = Qwen2Config.from_json_file(os.path.join(self.save_dir, "llm_config.json"))
+        self.llm_config.qk_norm = True
+        self.llm_config.tie_word_embeddings = False
+        self.llm_config.layer_module = "Qwen2MoTDecoderLayer"
 
-        vit_config = SiglipVisionConfig.from_json_file(os.path.join(self.save_dir, "vit_config.json"))
-        vit_config.rope = False
-        vit_config.num_hidden_layers = vit_config.num_hidden_layers - 1
+        self.vit_config = SiglipVisionConfig.from_json_file(os.path.join(self.save_dir, "vit_config.json"))
+        self.vit_config.rope = False
+        self.vit_config.num_hidden_layers = self.vit_config.num_hidden_layers - 1
 
         self.model_config = BagelConfig(
             visual_gen=False, 
             visual_und=True, 
-            llm_config=llm_config,
-            vit_config=vit_config,
+            llm_config=self.llm_config,
+            vit_config=self.vit_config,
             vit_max_num_patch_per_side=70,
             connector_act='gelu_pytorch_tanh',
             latent_patch_size=2,
@@ -96,14 +103,14 @@ class BagelModel:
         ) # avoiding VAE because it is used for generation only.
 
         with init_empty_weights():
-            self.language_model = Qwen2ForCausalLM(llm_config)
-            self.vit_model = SiglipVisionModel(vit_config)
+            self.language_model = Qwen2ForCausalLM(self.llm_config)
+            self.vit_model = SiglipVisionModel(self.vit_config)
             self.model = Bagel(
                 self.language_model, 
                 self.vit_model, 
                 self.model_config, 
-                torch_dtype = torch.bfloat16 #compromise on precision :(
             )
+            self.model.vit_model.vision_model.embeddings.convert_conv2d_to_linear(self.vit_config, meta=True)
         
         # Tokenizer Preparing
         self.tokenizer = Qwen2Tokenizer.from_pretrained(self.save_dir)
@@ -139,7 +146,7 @@ class BagelModel:
         packed_key_value_indexes = torch.cat(uppacked, dim=0)
 
         extra_inputs = {}
-        if self.use_moe:
+        if self.model.use_moe:
             extra_inputs = {"mode": "und"}
 
         output = self.language_model.forward_inference(
@@ -163,15 +170,15 @@ class BagelModel:
     def get_logits(self, prompts, images):
         device = next(self.model.parameters()).device
 
-        if isinstance(new_token_ids, dict):
-            for k, v in new_token_ids.items():
+        if isinstance(self.new_token_ids, dict):
+            for k, v in self.new_token_ids.items():
                 if torch.is_tensor(v):
-                    new_token_ids[k] = v.to(device)
+                    self.new_token_ids[k] = v.to(device)
         elif torch.is_tensor(new_token_ids):
-            new_token_ids = new_token_ids.to(device)
+            self.new_token_ids = self.new_token_ids.to(device)
 
         # prefill
-        past_key_values = NaiveCache(self.config.llm_config.num_hidden_layers)
+        past_key_values = NaiveCache(self.llm_config.num_hidden_layers)
         newlens = [0]
         new_rope = [0]
 
@@ -180,46 +187,49 @@ class BagelModel:
         # add image
         for prompt, image_path in zip(prompts, images):
             image = Image.open(image_path)
-            generation_input, newlens, new_rope = self.prepare_vit_images(
+            generation_input, newlens, new_rope = self.model.prepare_vit_images(
                 curr_kvlens=newlens,
                 curr_rope=new_rope, 
                 images=[image], 
-                transforms=image_transform,
-                new_token_ids=new_token_ids,
+                transforms=self.vit_transform,
+                new_token_ids=self.new_token_ids,
             )
             for k, v in generation_input.items():
                 if torch.is_tensor(v):
                     generation_input[k] = v.to(device)
             with torch.amp.autocast("cuda", enabled=True, dtype=torch.bfloat16):
-                past_key_values = self.forward_cache_update_vit(past_key_values, **generation_input)
+                past_key_values = self.model.forward_cache_update_vit(past_key_values, **generation_input)
 
             # add text
-            generation_input, newlens, new_rope = self.prepare_prompts(
+            generation_input, newlens, new_rope = self.model.prepare_prompts(
                 curr_kvlens=newlens,
                 curr_rope=new_rope, 
                 prompts=[prompt],
-                tokenizer=tokenizer, 
-                new_token_ids=new_token_ids,
+                tokenizer=self.tokenizer, 
+                new_token_ids=self.new_token_ids,
             )
             for k, v in generation_input.items():
                 if torch.is_tensor(v):
                     generation_input[k] = v.to(device)
             with torch.amp.autocast("cuda", enabled=True, dtype=torch.bfloat16):
-                past_key_values = self.forward_cache_update_text(past_key_values, **generation_input)
+                past_key_values = self.model.forward_cache_update_text(past_key_values, **generation_input)
 
             # decode
-            generation_input = self.prepare_start_tokens(newlens, new_rope, new_token_ids)
+            generation_input = self.model.prepare_start_tokens(newlens, new_rope, self.new_token_ids)
             for k, v in generation_input.items():
                 if torch.is_tensor(v):
                     generation_input[k] = v.to(device)
             
             logits = self.generate_text_custom(past_key_values=past_key_values,
-                max_length=max_length,
-                do_sample=do_sample,
-                temperature=temperature,
-                end_token_id=new_token_ids['eos_token_id'],
+                # max_length=300,
+                do_sample=False,
+                temperature=0,
+                end_token_id=self.new_token_ids['eos_token_id'],
                 **generation_input,)
-            outputs.append(logits.cpu().float())
+
+            last_token_logits = logits[-1, :]      # shape (vocab,)
+            outputs.append(last_token_logits.cpu().float())
+            # outputs.append(logits.cpu().float())
             
         return outputs
             
@@ -231,11 +241,13 @@ class BagelModel:
         max_mem_per_gpu = "40GiB"  # Modify it according to your GPU setting. On an A100, 80 GiB is sufficient to load on a single GPU.
 
         device_map = infer_auto_device_map(
-            model,
+            self.model,
             max_memory={i: max_mem_per_gpu for i in range(torch.cuda.device_count())},
-            no_split_module_classes=["Bagel", "Qwen2MoTDecoderLayer"],
+            # no_split_module_classes=["Bagel", "Qwen2MoTDecoderLayer"],
+            no_split_module_classes=["Bagel", "Qwen2MoTDecoderLayer", "SiglipVisionModel"]
         )
         print(device_map)
+        
 
         same_device_modules = [
             'language_model.model.embed_tokens',
@@ -250,14 +262,27 @@ class BagelModel:
         if torch.cuda.device_count() == 1:
             first_device = device_map.get(same_device_modules[0], "cuda:0")
             for k in same_device_modules:
+                
                 if k in device_map:
                     device_map[k] = first_device
                 else:
                     device_map[k] = "cuda:0"
+                
+                if k.startswith("vit_model") or k in [
+                    'connector',
+                    'vit_pos_embed'
+                ]:
+                    device_map[k] = first_device
         else:
             first_device = device_map.get(same_device_modules[0])
             for k in same_device_modules:
                 if k in device_map:
+                    device_map[k] = first_device
+                
+                if k.startswith("vit_model") or k in [
+                    'connector',
+                    'vit_pos_embed'
+                ]:
                     device_map[k] = first_device
 
         # Thanks @onion-liu: https://github.com/ByteDance-Seed/Bagel/pull/8
@@ -274,12 +299,12 @@ class BagelModel:
         self.model = self.model.eval()
         print('Model loaded')
 
-        inferencer = InterleaveInference(
+        inferencer = InterleaveInferencer(
             model = self.model,
             vae_model = None,
             tokenizer = self.tokenizer,
             vae_transform = None,
-            vit_transformer = self.vit_transform,
+            vit_transform = self.vit_transform,
             new_token_ids = self.new_token_ids
         )
 
@@ -294,31 +319,38 @@ class BagelModel:
         try:
             for batch in tqdm(dataloader):
                 # Unpack the batch tuple
-                image_paths, prompts, templates, true_labels = batch
+                image_paths, prompts, true_labels = batch
 
                 inference_hyper=dict(
                     max_think_token_n=1000,
                     do_sample=False,
-                    # text_temperature=0.3,
+                    text_temperature=0,
                 )
                 batch_outputs = []
-                for img_path, prompt in zip(img_paths, prompts):
-                    output_d = inferencer(image = Image.open(img_path), text = prompt, understanding_output=True, **inference_hyper)
+                for img_path, prompt in zip(image_paths, prompts):
+                    if img_path == None:
+                        output_d = inferencer(image = Image.open(img_path), text = prompt, understanding_output=True, **inference_hyper)
+                    else:
+                        output_d = inferencer(image = None, text = prompt, understanding_output=True, **inference_hyper)
                     batch_outputs.append(output_d['text'])
 
                 # do it again, but now, we need logits :)
                 with torch.no_grad():
-                    logit_outputs = self.get_logits(prompts, images)
+                    logit_outputs = self.get_logits(prompts, image_paths)
                                     
-                # logits: (batch_size, seq_len, vocab)
-                raw_logits = logit_outputs.logits.cpu().float()
-                # take next-token logits for each batch item: (bs, vocab)
-                first_token_logits = raw_logits[:, -1, :]
-                # target token list
+                # # logits: (batch_size, seq_len, vocab)
+                # raw_logits = logit_outputs.logits.cpu().float()
+                # # take next-token logits for each batch item: (bs, vocab)
+                # first_token_logits = raw_logits[:, -1, :]
+                # # target token list
                 target_tokens = ["A", "B", "C", "D", "E", "F", "G"]
                 # convert to token IDs
-                target_token_ids = self.processor.tokenizer.convert_tokens_to_ids(target_tokens)
+                # target_token_ids = self.processor.tokenizer.convert_tokens_to_ids(target_tokens)
+                target_token_ids = self.tokenizer.convert_tokens_to_ids(target_tokens)
+
                 option_probs = []  # list of (7,) tensors
+
+                first_token_logits = logit_outputs
 
                 # process each batch element
                 for raw_logit in first_token_logits:  # each is (vocab,)
@@ -330,20 +362,18 @@ class BagelModel:
                 for i, (image_path, prompt, true_desire, output, logit) in enumerate(
                     zip(image_paths, prompts, true_labels, batch_outputs, option_probs)
                 ):
-                    # Extract caption from messages
-                    output = None # get the generated text
                     result_dict = {
                         'image_path': image_path,
                         'caption': prompt,
                         'true_desire': true_desire,
                         'result': output.strip(),
-                        'option A': logit[0],
-                        'option B': logit[1],
-                        'option C': logit[2],
-                        'option D': logit[3],
-                        'option E': logit[4],
-                        'option F': logit[5],
-                        'option G': logit[6]
+                        'option A': float(logit[0]),
+                        'option B': float(logit[1]),
+                        'option C': float(logit[2]),
+                        'option D': float(logit[3]),
+                        'option E': float(logit[4]),
+                        'option F': float(logit[5]),
+                        'option G': float(logit[6])
                     }
                     all_results.append(result_dict)
         except Exception as e:
@@ -402,3 +432,4 @@ class BagelModel:
                 'romance', 
                 'none'])
         return output_df
+
