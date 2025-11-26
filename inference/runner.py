@@ -16,6 +16,7 @@ from VQA.data.prepare_experiment import expt1
 from VQA.data.prepare_experiment import expt2
 from VQA.data.prepare_experiment import expt3
 from VQA.data.prepare_experiment import expt4
+from VQA.data.prepare_experiment import expt5
 
 from torch.utils.data import DataLoader
 
@@ -52,6 +53,8 @@ def run_benchmark(
             data = expt3(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n, v)
         case 'expt4':
             data = expt4(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n, v)
+        case 'expt5':
+            data = expt5(dataset, "/projects/aiwell/code/aditya_ratan/ToM_VLM/VQA/data/msed_processed.csv", n, v)
     if data is None:
         raise Exception("define a proper experiment please :)")
     
@@ -66,13 +69,13 @@ def run_benchmark(
 
     dataloader_model = DataFactory.create_model(model_name, data)
     dataloader = DataLoader(
-        dataloader_model, 
-        batch_size=batch_size, 
-        shuffle=False, 
-        num_workers=3,
-        collate_fn=lambda x: tuple(zip(*x)),
-        pin_memory=True,  # Pin memory for faster GPU transfer
-        prefetch_factor=2  # Number of batches to prefetch per worker
+            dataloader_model, 
+            batch_size=batch_size, 
+            shuffle=False, 
+            num_workers=3,
+            collate_fn=lambda x: tuple(zip(*x)),
+            pin_memory=True,  # Pin memory for faster GPU transfer
+            prefetch_factor=2  # Number of batches to prefetch per worker
         )  # Return list of tuples as is)
     
     print("Converted data to a torch dataloader")
@@ -87,7 +90,7 @@ def run_benchmark(
 
     if not os.path.exists(SAVE_DIR):
         os.makedirs(SAVE_DIR, exist_ok=True)
-    SAVE_PATH = os.path.join(SAVE_DIR, f"{model_name}_{experiment_type}.csv")
+    SAVE_PATH = os.path.join(SAVE_DIR, f"{model_name}_{experiment_type}_{v}.csv")
     results.to_csv(SAVE_PATH)
 
     print("Results saved to {0}".format(SAVE_PATH))

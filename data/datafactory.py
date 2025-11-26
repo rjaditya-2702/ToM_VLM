@@ -46,16 +46,15 @@ class Data_Qwen(Dataset):
         prompt = row['prompt']
         image_name = row['image_name']
 
-        if image_name == None:
+        if image_name is None:
+            template = copy.deepcopy(self.no_img_message)
+            template[0]["content"][0]["text"] = prompt
+            image_path = None
+        else:
             image_path = os.path.join(image_path, image_name)
-            template = self.no_img_message.copy()
+            template = copy.deepcopy(self.message)
             template[0]["content"][0]["image"] = f"file://{image_path}"
             template[0]["content"][1]["text"] = prompt
-
-        else:
-            image_path = None
-            template = self.message.copy()
-            template[0]["content"][0]["text"] = prompt
 
         return image_path, prompt, template, true_label
 
@@ -101,15 +100,14 @@ class Data_Llama:
         prompt = row['prompt']        
         image_name = row['image_name']
 
-        if image_name == None:
-            image_path = os.path.join(image_path, image_name)
-            template = self.no_img_message.copy()
-            template[0]["content"][1]["text"] = prompt
-
-        else:
+        if image_name is None:
             image_path = None
-            template = self.message.copy()
+            template = copy.deepcopy(self.no_img_message)
             template[0]["content"][0]["text"] = prompt
+        else:
+            image_path = os.path.join(image_path, image_name)
+            template = copy.deepcopy(self.message)
+            template[0]["content"][1]["text"] = prompt
 
         return image_path, prompt, template, true_label
 
@@ -155,16 +153,15 @@ class Data_Llava7B:
         prompt = row['prompt']
         image_name = row['image_name']
 
-        if image_name == None:
+        if image_name is None:
+            image_path = None
+            template = copy.deepcopy(self.no_img_message)
+            template[0]["content"][0]["text"] = prompt
+        else:
             image_path = os.path.join(image_path, image_name)
-            template = self.no_img_message.copy()
+            template = copy.deepcopy(self.message)
             template[0]["content"][0]["image"] = image_path
             template[0]["content"][1]["text"] = prompt
-
-        else:
-            image_path = None
-            template = self.message.copy()
-            template[0]["content"][0]["text"] = prompt
 
         return image_path, prompt, template, true_label
         
@@ -209,16 +206,15 @@ class Data_Llava13B:
         prompt = row['prompt']
         image_name = row['image_name']
         
-        if image_name == None:
+        if image_name is None:
+            image_path = None
+            template = copy.deepcopy(self.no_img_message)
+            template[0]["content"][0]["text"] = prompt
+        else:
             image_path = os.path.join(image_path, image_name)
-            template = self.no_img_message.copy()
+            template = copy.deepcopy(self.message)
             template[0]["content"][0]["image"] = image_path
             template[0]["content"][1]["text"] = prompt
-
-        else:
-            image_path = None
-            template = self.message.copy()
-            template[0]["content"][0]["text"] = prompt
 
         return image_path, prompt, template, true_label
 
@@ -282,16 +278,15 @@ class Data_Gemma:
         prompt = row['prompt']
         image_name = row['image_name']
 
-        if image_name == None:
+        if image_name is None:
+            image_path = None
+            template = copy.deepcopy(self.no_img_message)
+            template[0]["content"][0]["text"] = prompt
+        else:
             image_path = os.path.join(image_path, image_name)
-            template = self.no_img_message.copy()
+            template = copy.deepcopy(self.message.copy())
             template[0]["content"][0]["image"] = image_path
             template[0]["content"][1]["text"] = prompt
-
-        else:
-            image_path = None
-            template = self.message.copy()
-            template[0]["content"][0]["text"] = prompt
 
         return image_path, prompt, template, true_label
 
@@ -313,7 +308,7 @@ class Data_Bagel:
         
         image_name = row['image_name']
 
-        if image_name == None:
+        if image_name is None:
             image_path = None
         else:
             image_path = os.path.join(image_path, image_name)

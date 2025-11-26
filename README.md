@@ -142,6 +142,7 @@ if experiment == "expt1": use blank image, no question
 if experiment == "expt2": use blank image, with question
 if experiment == "expt3": use real image, no question
 if experiment == "expt4": use real image, with question
+if experiment == "expt5": don't use image, with question
 ```
 
 ### 4. Separation of Concerns

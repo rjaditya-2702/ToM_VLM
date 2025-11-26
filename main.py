@@ -24,10 +24,12 @@ def main():
 
     parser.add_argument(
         '--experiment',
+        nargs='+',
         type=str,
-        choices=['expt1', 'expt2', 'expt3', 'expt4'],
-        help='Experiment type: expt1 (blank+no_q), expt2 (blank+q), expt3 (img+no_q), expt4 (img+q)'
+        choices=['expt1', 'expt2', 'expt3', 'expt4', 'expt5'],
+        help='One or more experiment types (e.g., --experiment expt1 expt3)'
     )
+
     
     parser.add_argument(
         '--batch-size',
@@ -72,14 +74,19 @@ def main():
     
     # Run benchmark
     try:
-        run_benchmark(
-            dataset = args.dataset,
-            model_name=args.model,
-            experiment_type=args.experiment,
-            batch_size=args.batch_size,
-            n = args.size,
-            v = args.prompt
-        )
+        for exp in args.experiment:
+            print("-"*40)
+            print(f"\t\t\tRUNNIGN EXPERIMENT - {exp}")
+            print("-"*40)
+            run_benchmark(
+                dataset = args.dataset,
+                model_name=args.model,
+                experiment_type=exp,
+                batch_size=args.batch_size,
+                n = args.size,
+                v = args.prompt
+            )
+            print()
     except Exception as e:
         print(f"\nError running benchmark: {e}")
         return e

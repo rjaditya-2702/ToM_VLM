@@ -108,6 +108,8 @@ class LlamaModel:
                     clean_up_tokenization_spaces=False,
                 )
 
+                del generated_ids_trimmed
+
                 # do it again, but now, we need logits :)
                 with torch.no_grad():
                     logit_outputs = self.model(**inputs)
@@ -126,6 +128,9 @@ class LlamaModel:
                     probs = torch.nn.functional.softmax(raw_logit, dim=-1)  # (vocab,)
                     position_probs = probs[target_token_ids]  # (7,)
                     option_probs.append(position_probs)
+                
+                del raw_logits
+                del first_token_logits
                 
                 # Store results for this batch
                 for i, (image_path, prompt, true_desire, output, logit) in enumerate(

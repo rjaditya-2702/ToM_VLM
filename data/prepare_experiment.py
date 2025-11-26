@@ -90,12 +90,11 @@ def expt1(data_name, dataset_path, n = None, v = 'v1'):
     if experiment == "expt1": use blank image, no question
     """
     PROMPT = get_prompt(v)
-
-    if not os.path.exists(dataset_path):
-        if data_name == 'msed':
-            msed_dev_dataset_prep(output_path = dataset_path)
-    df = pd.read_csv(dataset_path)
-    if n is not None and n < len(df):
+    # if not os.path.exists(dataset_path):
+    #     if data_name == 'msed':
+    #         msed_dev_dataset_prep(output_path = dataset_path)
+    # df = pd.read_csv(dataset_path)
+    if n is not None and n < 1021:
         df = df.sample(n=n, random_state=random_seed).reset_index(drop=True)
     else:
         n = len(df)
@@ -118,7 +117,8 @@ def expt2(data_name, dataset_path, n = None, v = 'v1'):
 
     if not os.path.exists(dataset_path):
         if data_name == 'msed':
-            msed_dev_dataset_prep(output_path = dataset_path)
+            if not os.path.exists(dataset_path):
+                msed_dev_dataset_prep(output_path = dataset_path)
     df = pd.read_csv(dataset_path)
     if n is not None and n < len(df):
         df = df.sample(n=n, random_state=random_seed).reset_index(drop=True)
@@ -145,8 +145,9 @@ def expt3(data_name, dataset_path, n = None, v = 'v1'):
 
     if not os.path.exists(dataset_path):
         if data_name == 'msed':
-            msed_dev_dataset_prep(output_path = dataset_path)
-    df = pd.read_csv(dataset_pat2)
+            if not os.path.exists(dataset_path):
+                msed_dev_dataset_prep(output_path = dataset_path)
+    df = pd.read_csv(dataset_path)
     if n is not None and n < len(df):
         df = df.sample(n=n, random_state=random_seed).reset_index(drop=True)
     
@@ -168,7 +169,8 @@ def expt4(data_name, dataset_path, n = None, v = 'v1'):
 
     if not os.path.exists(dataset_path):
         if data_name == 'msed':
-            msed_dev_dataset_prep(output_path = dataset_path)
+            if not os.path.exists(dataset_path):
+                msed_dev_dataset_prep(output_path = dataset_path)
     df = pd.read_csv(dataset_path)
     if n is not None and n < len(df):
         df = df.sample(n=n, random_state=random_seed).reset_index(drop=True)
@@ -194,7 +196,8 @@ def expt5(data_name, dataset_path, n = None, v = 'v1'):
     # No image and caption
     if not os.path.exists(dataset_path):
         if data_name == 'msed':
-            msed_dev_dataset_prep(output_path = dataset_path)
+            if not os.path.exists(dataset_path):
+                msed_dev_dataset_prep(output_path = dataset_path)
     df = pd.read_csv(dataset_path)
     if n is not None and n < len(df):
         df = df.sample(n=n, random_state=random_seed).reset_index(drop=True)

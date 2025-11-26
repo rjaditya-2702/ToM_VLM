@@ -151,13 +151,13 @@ class QwenModel:
                         'caption': prompt,
                         'true_desire': true_desire,
                         'result': output.strip(),
-                        'option A': logit[0],
-                        'option B': logit[1],
-                        'option C': logit[2],
-                        'option D': logit[3],
-                        'option E': logit[4],
-                        'option F': logit[5],
-                        'option G': logit[6]
+                        'option A': float(logit[0]),
+                        'option B': float(logit[1]),
+                        'option C': float(logit[2]),
+                        'option D': float(logit[3]),
+                        'option E': float(logit[4]),
+                        'option F': float(logit[5]),
+                        'option G': float(logit[6])
                     }
                     all_results.append(result_dict)
                     
@@ -174,7 +174,12 @@ class QwenModel:
                 
         for result in all_results:
             # Extract image name from path
-            image_name = os.path.basename(result['image_path'])
+            p = result['image_path']
+            if p is not None:
+                image_name = os.path.basename(result['image_path'])
+            else:
+                image_name = None
+            
             predictions = [result['option A'],
                 result['option B'],
                 result['option C'],
