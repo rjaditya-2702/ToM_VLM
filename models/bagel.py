@@ -388,7 +388,11 @@ class BagelModel:
         
         for result in all_results:
             # Extract image name from path
-            image_name = os.path.basename(result['image_path'])
+            p = result['image_path']
+            if p:
+                image_name = os.path.basename(p)
+            else:
+                image_name = None
             predictions = [result['option A'],
                 result['option B'],
                 result['option C'],

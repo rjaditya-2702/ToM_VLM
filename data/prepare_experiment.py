@@ -25,13 +25,13 @@ PROMPT_v2 = """
     Examine the given situation and determine what the subject desires.
     
     Categories with visual markers:
-    1. family - family photos, children's toys, home settings, generational interactions, family-oriented activities
-    2. romance - couples, intimate gestures, romantic settings, dating contexts, expressions of affection
-    3. vengeance - angry expressions, threatening postures, weapons/conflict imagery, confrontational scenes
-    4. curiosity - exploration, investigation, reading/studying, scientific tools, discovery moments, questioning expressions
-    5. tranquility - peaceful settings, relaxed postures, meditation, nature scenes, calm expressions, rest
-    6. social-contact - groups of friends, social gatherings, conversation, welcoming gestures, community settings
-    7. none - desires that don't match patterns above
+    A. family - family photos, children's toys, home settings, generational interactions, family-oriented activities
+    B. romance - couples, intimate gestures, romantic settings, dating contexts, expressions of affection
+    C. vengeance - angry expressions, threatening postures, weapons/conflict imagery, confrontational scenes
+    D. curiosity - exploration, investigation, reading/studying, scientific tools, discovery moments, questioning expressions
+    E. tranquility - peaceful settings, relaxed postures, meditation, nature scenes, calm expressions, rest
+    F. social-contact - groups of friends, social gatherings, conversation, welcoming gestures, community settings
+    G. none - desires that don't match patterns above
     
     Examples of output format:
     

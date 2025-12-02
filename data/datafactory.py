@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import copy
 from typing import List, Dict, Any
-
+from PIL import Image
 
 class Data_Qwen(Dataset):
     def __init__(self, data):
@@ -222,6 +222,15 @@ class Data_Gemma:
     def __init__(self, data):
         self.message = [
                 {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "You are a helpful assistant."
+                        }
+                    ]
+                },
+                {
                     "role": "user",
                     "content": [
                         {
@@ -234,6 +243,10 @@ class Data_Gemma:
                         }
                     ]
                 },
+
+            ]
+        
+        self.no_img_message = [
                 {
                     "role": "system",
                     "content": [
@@ -242,25 +255,13 @@ class Data_Gemma:
                             "text": "You are a helpful assistant."
                         }
                     ]
-                }
-            ]
-        
-        self.no_img_message = [
+                },
                 {
                     "role": "user",
                     "content": [
                         {
                             "type": "text",
                             "text": ""
-                        }
-                    ]
-                },
-                {
-                    "role": "system",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "You are a helpful assistant."
                         }
                     ]
                 }
@@ -281,12 +282,12 @@ class Data_Gemma:
         if image_name is None:
             image_path = None
             template = copy.deepcopy(self.no_img_message)
-            template[0]["content"][0]["text"] = prompt
+            template[1]["content"][0]["text"] = prompt
         else:
             image_path = os.path.join(image_path, image_name)
-            template = copy.deepcopy(self.message.copy())
-            template[0]["content"][0]["image"] = image_path
-            template[0]["content"][1]["text"] = prompt
+            template = copy.deepcopy(self.message)
+            template[1]["content"][0]["image"] = Image.open(image_path)
+            template[1]["content"][1]["text"] = prompt
 
         return image_path, prompt, template, true_label
 

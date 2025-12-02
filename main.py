@@ -74,19 +74,14 @@ def main():
     
     # Run benchmark
     try:
-        for exp in args.experiment:
-            print("-"*40)
-            print(f"\t\t\tRUNNIGN EXPERIMENT - {exp}")
-            print("-"*40)
-            run_benchmark(
-                dataset = args.dataset,
-                model_name=args.model,
-                experiment_type=exp,
-                batch_size=args.batch_size,
-                n = args.size,
-                v = args.prompt
-            )
-            print()
+        run_benchmark(
+            dataset = args.dataset,
+            model_name=args.model,
+            experiments=args.experiment,
+            batch_size=args.batch_size,
+            n = args.size,
+            v = args.prompt
+        )
     except Exception as e:
         print(f"\nError running benchmark: {e}")
         return e

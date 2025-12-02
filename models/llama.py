@@ -70,7 +70,7 @@ class LlamaModel:
         for batch in tqdm(dataloder):
             # Unpack the batch tuple
             image_paths, prompts, templates, true_labels = batch
-            images = [[Image.open(p)] if p is not None else None for p in image_paths]
+            images = [[Image.open(p)] for p in image_paths if p is not None]
             
             try:                
                 # Prepare all inputs at once
@@ -80,13 +80,19 @@ class LlamaModel:
                     tokenizer=False, 
                     add_generation_prompt=True
                 )
-
-                inputs = self.processor(
-                    text=text,
-                    images=images,
-                    padding=True,
-                    return_tensors="pt",
-                )
+                if images:
+                    inputs = self.processor(
+                        text=text,
+                        images=images,
+                        padding=True,
+                        return_tensors="pt",
+                    )
+                else:
+                    inputs = self.processor(
+                        text = text,
+                        padding = True,
+                        return_tensors='pt'
+                    )
                 inputs = inputs.to("cuda")
                 
                 # Generate for entire batch
@@ -165,7 +171,11 @@ class LlamaModel:
         
         for result in all_results:
             # Extract image name from path
-            image_name = os.path.basename(result['image_path'])
+            p = result['image_path']
+            if p:
+                image_name = os.path.basename(p)
+            else:
+                image_name = None
             predictions = [result['option A'],
                 result['option B'],
                 result['option C'],
