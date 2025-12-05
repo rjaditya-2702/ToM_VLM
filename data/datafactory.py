@@ -44,7 +44,7 @@ class Data_Qwen(Dataset):
         
         true_label = row['true_desire']
         prompt = row['prompt']
-        image_name = row['image_name']
+        image_name = copy.deepcopy(row['image_name'])
 
         if image_name is None:
             template = copy.deepcopy(self.no_img_message)
@@ -98,7 +98,7 @@ class Data_Llama:
         
         true_label = row['true_desire']
         prompt = row['prompt']        
-        image_name = row['image_name']
+        image_name = copy.deepcopy(row['image_name'])
 
         if image_name is None:
             image_path = None
@@ -151,7 +151,7 @@ class Data_Llava7B:
         
         true_label = row['true_desire']
         prompt = row['prompt']
-        image_name = row['image_name']
+        image_name = copy.deepcopy(row['image_name'])
 
         if image_name is None:
             image_path = None
@@ -160,7 +160,7 @@ class Data_Llava7B:
         else:
             image_path = os.path.join(image_path, image_name)
             template = copy.deepcopy(self.message)
-            template[0]["content"][0]["image"] = image_path
+            template[0]["content"][0]["url"] = image_path
             template[0]["content"][1]["text"] = prompt
 
         return image_path, prompt, template, true_label
@@ -204,7 +204,7 @@ class Data_Llava13B:
         
         true_label = row['true_desire']
         prompt = row['prompt']
-        image_name = row['image_name']
+        image_name = copy.deepcopy(row['image_name'])
         
         if image_name is None:
             image_path = None
@@ -213,7 +213,7 @@ class Data_Llava13B:
         else:
             image_path = os.path.join(image_path, image_name)
             template = copy.deepcopy(self.message)
-            template[0]["content"][0]["image"] = image_path
+            template[0]["content"][0]["url"] = image_path
             template[0]["content"][1]["text"] = prompt
 
         return image_path, prompt, template, true_label
@@ -277,7 +277,7 @@ class Data_Gemma:
         
         true_label = row['true_desire']
         prompt = row['prompt']
-        image_name = row['image_name']
+        image_name = copy.deepcopy(row['image_name'])
 
         if image_name is None:
             image_path = None

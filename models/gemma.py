@@ -12,6 +12,7 @@ import warnings
 from typing import List, Dict, Any
 from transformers import Gemma3ForConditionalGeneration, AutoProcessor
 from torch.utils.data import DataLoader
+from torch.nn.utils.rnn import pad_sequence
 from tqdm import tqdm
 from PIL import Image
 
@@ -71,21 +72,6 @@ class GemmaModel:
         # self.pipe.model = torch.compile(self.pipe.model, mode="reduce-overhead")
 
     @torch.inference_mode()
-    def _process_mixed_batch(self, templates: List[dict], max_new_tokens: int):
-        """
-        Handle batches with mixed image/text-only samples by processing individually
-        """
-        all_outputs = []
-        all_logits = []
-        
-        for template in templates:
-            outputs, logits = self._process_batch([template], [prompt], max_new_tokens)
-            all_outputs.extend(outputs)
-            all_logits.extend(logits)
-        
-        return all_outputs, all_logits
-
-    @torch.inference_mode()
     def _process_batch(self, templates: List[dict], prompts:List[Any], max_new_tokens: int):
         """
         Process a single batch: generate text and extract first token logits
@@ -98,60 +84,80 @@ class GemmaModel:
             batch_outputs: List of outputs in format [{"generated_text": [...]}]
             first_token_logits: List of (vocab,) tensors for first generated token
         """
-        # Prepare inputs from templates
-        # processed_inputs = []
-        # images = []
-        
-        # for template in templates:
-        #     # Extract image if present
-        #     image = None
-        #     # text_parts = []
+        # Check if all images are present
+        images = []
+        for template in templates:
+            # Extract image if present
+            image = None
+            # text_parts = []
             
-        #     for message in template:
-        #         if message["role"] == "user":
-        #             for content in message["content"]:
-        #                 if content["type"] == "image" and content["image"]:
-        #                     image = content["image"]
-        #                 # elif content["type"] == "text":
-        #                 #     text_parts.append(content["text"])
+            for message in template:
+                if message["role"] == "user":
+                    for content in message["content"]:
+                        if content["type"] == "image" and content["image"]:
+                            image = content["image"]
+                        # elif content["type"] == "text":
+                        #     text_parts.append(content["text"])
             
-        #     # Combine text
-        #     # prompt_text = " ".join(text_parts)
-        #     # processed_inputs.append(prompt_text)
-        #     images.append(image)
-        
-        # # Process with processor
-        # if all(img is not None for img in images):
-        #     # All samples have images
-        #     inputs = self.processor(
-        #         text=prompts,
-        #         images=images,
-        #         return_tensors="pt",
-        #         padding=True
-        #     ).to('cuda')
-        # elif all(img is None for img in images):
-        #     # No images in batch
-        #     inputs = self.processor(
-        #         text=processed_inputs,
-        #         return_tensors="pt",
-        #         padding=True
-        #     ).to('cuda')
-        # else:
-        #     # Mixed batch - process one by one
-        #     return self._process_mixed_batch(templates, propmts, max_new_tokens)
+            images.append(image)
+
+        if len(images) == 0:
+            images = [None]*len(templates)
 
         formatted_texts = self.processor.apply_chat_template(
             templates,
-            tokenize=False,  # Don't tokenize yet!
+            tokenize=False,
         )
 
-        # Step 2: Now tokenize with proper padding
-        inputs = self.processor(
-            text=formatted_texts,
-            return_tensors="pt",
-            padding=True,  # This handles different lengths
-            truncation=True
-        ).to('cuda')
+        # Process each sample individually, then manually batch
+        # This is more reliable for multimodal batching
+        all_input_ids = []
+        all_attention_masks = []
+        all_pixel_values = []
+        
+        for text, img in zip(formatted_texts, images):
+            single_input = self.processor(
+                text=text,
+                images=img,  # Single image
+                return_tensors="pt",
+            )
+            all_input_ids.append(single_input['input_ids'])
+            all_attention_masks.append(single_input['attention_mask'])
+            if 'pixel_values' in single_input:
+                all_pixel_values.append(single_input['pixel_values'])
+        
+        # Pad and stack
+        
+        # Pad input_ids (need to squeeze and re-add batch dim)
+        input_ids_list = [x.squeeze(0) for x in all_input_ids]
+        input_ids = pad_sequence(input_ids_list, batch_first=True, padding_value=self.processor.tokenizer.pad_token_id, padding_side='left')
+        
+        attention_mask_list = [x.squeeze(0) for x in all_attention_masks]
+        attention_mask = pad_sequence(attention_mask_list, batch_first=True, padding_value=0)
+        
+        inputs = {
+            'input_ids': input_ids.to('cuda'),
+            'attention_mask': attention_mask.to('cuda'),
+        }
+        
+        if all_pixel_values:
+            # Stack pixel values - they should all be same shape
+            pixel_values = torch.cat(all_pixel_values, dim=0).to('cuda')
+            inputs['pixel_values'] = pixel_values
+
+        # formatted_texts = self.processor.apply_chat_template(
+        #     templates,
+        #     tokenize=False,  # Don't tokenize yet!
+        # )
+
+        # # Step 2: Now tokenize with proper padding
+        # inputs = self.processor(
+        #     text=formatted_texts,
+        #     images = images,
+        #     return_tensors="pt",
+        #     padding=True,  # This handles different lengths
+        #     truncation=True
+        # ).to('cuda')
         
         # Generate with output logits
         with torch.no_grad():
